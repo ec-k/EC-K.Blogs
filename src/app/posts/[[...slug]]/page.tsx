@@ -1,14 +1,17 @@
-import { getAllPostSlugs, getPostData } from '../../../../lib/posts';
+import { getAllPostSlugs, getPostData } from "@/lib/posts";
 
 export async function generateStaticParams() {
+  console.log('generateStaticParams: Executing...');
   const posts = getAllPostSlugs();
+  console.log('generateStaticParams: Slugs found:', posts);
   return posts.map((post) => ({
-    slug: post.slug,
+    slug: post.slug.split('/'),
   }));
 }
 
-export default async function Post({ params }: { params: { slug: string } }) {
-  const postData = await getPostData(params.slug);
+export default async function Post({ params }: { params: { slug: string[] } }) {
+  const slugString = params.slug.join('/');
+  const postData = await getPostData(slugString);
 
   return (
     <div className="container mx-auto px-4 py-8">

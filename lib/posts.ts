@@ -4,6 +4,8 @@ import matter from 'gray-matter';
 import { remark } from 'remark';
 import html from 'remark-html';
 
+console.log('--- lib/posts.ts loaded ---');
+
 interface PostData {
   slug: string;
   title: string;
@@ -15,7 +17,11 @@ const postsDirectory = path.join(process.cwd(), 'contents');
 
 export function getSortedPostsData() {
   const allPostsData: PostData[] = [];
-  const categories = fs.readdirSync(postsDirectory);
+  const rawCategories = fs.readdirSync(postsDirectory);
+  console.log('getSortedPostsData: Raw categories:', rawCategories);
+  const categories = rawCategories
+    .filter(name => fs.statSync(path.join(postsDirectory, name)).isDirectory() && !name.startsWith('.'));
+  console.log('getSortedPostsData: Filtered categories:', categories);
 
   categories.forEach(category => {
     const categoryPath = path.join(postsDirectory, category);
@@ -59,9 +65,17 @@ export function getSortedPostsData() {
 }
 
 export async function getPostData(slug: string) {
+  console.log('getPostData: Received slug:', slug);
   const decodedSlug = decodeURIComponent(slug);
+  console.log('getPostData: Decoded slug:', decodedSlug);
   const [category, articleTitle] = decodedSlug.split('/');
+  console.log('getPostData: Category:', category, 'Article Title:', articleTitle);
   const fullPath = path.join(postsDirectory, category, articleTitle, 'main.md');
+  console.log('getPostData: Attempting to read file from:', fullPath);
+  if (!fs.existsSync(fullPath)) {
+    console.error('getPostData: File not found at:', fullPath);
+    throw new Error(`Post not found for slug: ${slug}`);
+  }
   const fileContents = fs.readFileSync(fullPath, 'utf8');
   const matterResult = matter(fileContents);
 
@@ -72,9 +86,9 @@ export async function getPostData(slug: string) {
     const processedContent = await remark().use(html).process(matterResult.content);
     contentHtml = processedContent.toString();
     // Adjust image paths to point to the public/assets directory
-    contentHtml = contentHtml.replace(/src=\"images\/g, `src=\"/assets/${category}/${articleTitle}/images/`);
+    contentHtml = contentHtml.replace(/src="images\//g, `src="/assets/${category}/${articleTitle}/images/`);
     // Adjust sound paths to point to the public/assets directory
-    contentHtml = contentHtml.replace(/src=\"sounds\/g, `src=\"/assets/${category}/${articleTitle}/sounds/`);
+    contentHtml = contentHtml.replace(/src="sounds\//g, `src="/assets/${category}/${articleTitle}/sounds/`);
   }
 
   let dateString: string;
@@ -99,7 +113,11 @@ export async function getPostData(slug: string) {
 
 export function getAllPostSlugs() {
   const slugs: { slug: string }[] = [];
-  const categories = fs.readdirSync(postsDirectory);
+  const rawCategories = fs.readdirSync(postsDirectory);
+  console.log('getAllPostSlugs: Raw categories:', rawCategories);
+  const categories = rawCategories
+    .filter(name => fs.statSync(path.join(postsDirectory, name)).isDirectory() && !name.startsWith('.'));
+  console.log('getAllPostSlugs: Filtered categories:', categories);
 
   categories.forEach(category => {
     const categoryPath = path.join(postsDirectory, category);
