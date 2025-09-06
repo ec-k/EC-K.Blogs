@@ -4,24 +4,13 @@ import matter from 'gray-matter';
 import { remark } from 'remark';
 import html from 'remark-html';
 
-console.log('--- lib/posts.ts loaded ---');
-
-interface PostData {
-  slug: string;
-  title: string;
-  date: string;
-  author: string;
-}
-
 const postsDirectory = path.join(process.cwd(), 'contents');
 
 export function getSortedPostsData() {
   const allPostsData: PostData[] = [];
   const rawCategories = fs.readdirSync(postsDirectory);
-  console.log('getSortedPostsData: Raw categories:', rawCategories);
   const categories = rawCategories
     .filter(name => fs.statSync(path.join(postsDirectory, name)).isDirectory() && !name.startsWith('.'));
-  console.log('getSortedPostsData: Filtered categories:', categories);
 
   categories.forEach(category => {
     const categoryPath = path.join(postsDirectory, category);
@@ -332,10 +321,8 @@ export function getAllPostSlugs() {
 export function getAllPostSlugs() {
   const slugs: { slug: string }[] = [];
   const rawCategories = fs.readdirSync(postsDirectory);
-  console.log('getAllPostSlugs: Raw categories:', rawCategories);
   const categories = rawCategories
     .filter(name => fs.statSync(path.join(postsDirectory, name)).isDirectory() && !name.startsWith('.'));
-  console.log('getAllPostSlugs: Filtered categories:', categories);
 
   categories.forEach(category => {
     const categoryPath = path.join(postsDirectory, category);
@@ -346,31 +333,24 @@ export function getAllPostSlugs() {
       if (fs.statSync(itemPath).isDirectory()) {
         const mainMdPath = path.join(itemPath, 'main.md');
         if (fs.existsSync(mainMdPath)) {
-          console.log('getAllPostSlugs: Processing 2-level category:', category, 'articleTitle:', item);
           const generatedSlug = `${category}/${item}`;
-          console.log('getAllPostSlugs: Generated slug:', generatedSlug);
           slugs.push({
             slug: generatedSlug,
           });
         } else {
           const articlesInSubCategory = fs.readdirSync(itemPath);
           articlesInSubCategory.forEach(articleTitle => {
-            console.log('getAllPostSlugs: Processing 3-level category:', category, 'subCategory:', item, 'articleTitle:', articleTitle);
             const fullPath = path.join(itemPath, articleTitle, 'main.md');
             if (fs.existsSync(fullPath)) {
               const generatedSlug = `${category}/${item}/${articleTitle}`;
-              console.log('getAllPostSlugs: Generated slug:', generatedSlug);
               slugs.push({
                 slug: generatedSlug,
               });
-            } else {
-              console.error('getAllPostSlugs: main.md not found or inaccessible for:', fullPath);
             }
           });
         }
       }
     });
   });
-  console.log('getAllPostSlugs: Final slugs array:', slugs);
   return slugs;
 }
