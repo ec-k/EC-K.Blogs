@@ -4,25 +4,51 @@ import matter from 'gray-matter';
 import { remark } from 'remark';
 import html from 'remark-html';
 
+interface PostData {
+  slug: string;
+  title: string;
+  date: string;
+  author: string;
+}
+
 const postsDirectory = path.join(process.cwd(), 'contents');
 
 export function getSortedPostsData() {
-  const fileNames = fs.readdirSync(postsDirectory);
-  const allPostsData = fileNames.map((fileName) => {
-    const slug = fileName.replace(/\.md$/, '');
-    const fullPath = path.join(postsDirectory, fileName);
-    const fileContents = fs.readFileSync(fullPath, 'utf8');
-    const matterResult = matter(fileContents);
+  const allPostsData: PostData[] = [];
+  const categories = fs.readdirSync(postsDirectory);
 
-    const dateString = new Date(matterResult.data.date as string).toISOString().substring(0, 10);
+  categories.forEach(category => {
+    const categoryPath = path.join(postsDirectory, category);
+    const articles = fs.readdirSync(categoryPath);
 
-    return {
-      slug,
-      title: matterResult.data.title as string,
-      date: dateString,
-      author: matterResult.data.author as string,
-    };
+    articles.forEach(articleTitle => {
+      const fullPath = path.join(categoryPath, articleTitle, 'main.md');
+      // Check if main.md exists
+      if (fs.existsSync(fullPath)) {
+        const fileContents = fs.readFileSync(fullPath, 'utf8');
+        const matterResult = matter(fileContents);
+
+        let dateString: string;
+        const parsedDate = new Date(matterResult.data.date as string);
+        if (isNaN(parsedDate.getTime())) {
+          dateString = 'YYYY-MM-DD';
+        } else {
+          dateString = parsedDate.toISOString().substring(0, 10);
+        }
+
+        const title = (matterResult.data.title as string) || 'Untitled Post';
+        const author = (matterResult.data.author as string) || 'Unknown Author';
+
+        allPostsData.push({
+          slug: `${category}/${articleTitle}`,
+          title,
+          date: dateString,
+          author,
+        });
+      }
+    });
   });
+
   return allPostsData.sort((a, b) => {
     if (a.date < b.date) {
       return 1;
@@ -33,29 +59,62 @@ export function getSortedPostsData() {
 }
 
 export async function getPostData(slug: string) {
-  const fullPath = path.join(postsDirectory, `${slug}.md`);
+  const decodedSlug = decodeURIComponent(slug);
+  const [category, articleTitle] = decodedSlug.split('/');
+  const fullPath = path.join(postsDirectory, category, articleTitle, 'main.md');
   const fileContents = fs.readFileSync(fullPath, 'utf8');
   const matterResult = matter(fileContents);
 
-  const processedContent = await remark().use(html).process(matterResult.content);
-  const contentHtml = processedContent.toString();
+  let contentHtml: string;
+  if (!matterResult.content || matterResult.content.trim() === '') {
+    contentHtml = '<p>No content available for this post.</p>';
+  } else {
+    const processedContent = await remark().use(html).process(matterResult.content);
+    contentHtml = processedContent.toString();
+    // Adjust image paths to point to the public/assets directory
+    contentHtml = contentHtml.replace(/src=\"images\/g, `src=\"/assets/${category}/${articleTitle}/images/`);
+    // Adjust sound paths to point to the public/assets directory
+    contentHtml = contentHtml.replace(/src=\"sounds\/g, `src=\"/assets/${category}/${articleTitle}/sounds/`);
+  }
 
-  const dateString = new Date(matterResult.data.date as string).toISOString().substring(0, 10);
+  let dateString: string;
+  const parsedDate = new Date(matterResult.data.date as string);
+  if (isNaN(parsedDate.getTime())) {
+    dateString = 'YYYY-MM-DD';
+  } else {
+    dateString = parsedDate.toISOString().substring(0, 10);
+  }
+
+  const title = (matterResult.data.title as string) || 'Untitled Post';
+  const author = (matterResult.data.author as string) || 'Unknown Author';
 
   return {
     slug,
-    title: matterResult.data.title as string,
+    title,
     date: dateString,
-    author: matterResult.data.author as string,
+    author,
     contentHtml,
   };
 }
 
 export function getAllPostSlugs() {
-  const fileNames = fs.readdirSync(postsDirectory);
-  return fileNames.map((fileName) => {
-    return {
-      slug: fileName.replace(/\.md$/, ''),
-    };
+  const slugs: { slug: string }[] = [];
+  const categories = fs.readdirSync(postsDirectory);
+
+  categories.forEach(category => {
+    const categoryPath = path.join(postsDirectory, category);
+    const articles = fs.readdirSync(categoryPath);
+
+    articles.forEach(articleTitle => {
+      const fullPath = path.join(categoryPath, articleTitle, 'main.md');
+      // Only add slug if main.md exists
+      if (fs.existsSync(fullPath)) {
+        const generatedSlug = `${category}/${articleTitle}`;
+        slugs.push({
+          slug: generatedSlug,
+        });
+      }
+    });
   });
+  return slugs;
 }
