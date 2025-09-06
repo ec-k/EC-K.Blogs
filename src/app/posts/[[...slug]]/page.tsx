@@ -9,8 +9,12 @@ export async function generateStaticParams() {
   }));
 }
 
-export default async function Post({ params }: { params: { slug: string[] } }) {
-  const slug = await params;
+export default async function Post({
+  params: paramsPromise,
+}: {
+  params: Promise<{ slug: string[] }>;
+}) {
+  const params = await paramsPromise;
   const slugString = params.slug.join("/");
   const postData = await getPostData(slugString);
 
